@@ -1,0 +1,30 @@
+# Parent directory files
+../*
+
+# Docker volumes
+influxdb-data/
+grafana-data/
+
+# Environment files
+.env
+.env.local
+
+# Logs
+*.log
+
+# SSH Keys
+*.pem
+*.key
+*.pub
+danielcn@*
+id_rsa*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

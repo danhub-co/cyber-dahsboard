@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  influxdb:
+    image: influxdb:latest
+    ports:
+      - "8087:8087"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=password12345  # Must be at least 8 chars
+      - DOCKER_INFLUXDB_INIT_ORG=my-org
+      - DOCKER_INFLUXDB_INIT_BUCKET=security_logs
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=my-super-secret-auth-token
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+
+  telegraf:
+    image: telegraf:latest
+    environment:
+      - INFLUXDB_URL=http://influxdb:8087
+      - INFLUXDB_ORG=my-org
+      - INFLUXDB_BUCKET=security_logs
+      - INFLUXDB_TOKEN=my-super-secret-auth-token
+    volumes:
+      - ./telegraf.conf:/etc/telegraf/telegraf.conf:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro # Optional: for monitoring docker logs
+    depends_on:
+      - influxdb
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=Admin123456
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana-datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+      - ./grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
+    depends_on:
+      - influxdb
+
+  webhook-receiver:
+    image: python:3.11-slim
+    ports:
+      - "5000:5000"
+    working_dir: /app
+    command: bash -c "pip install -q flask requests python-dotenv && python webhook-receiver.py"
+    volumes:
+      - ./webhook-receiver.py:/app/webhook-receiver.py:ro
+      - webhook-data:/app
+    environment:
+      - FLASK_ENV=production
+      - FLASK_APP=webhook-receiver
+    restart: unless-stopped
+
+volumes:
+  influxdb-data:
+  grafana-data:
+  webhook-data:

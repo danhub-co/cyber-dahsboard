@@ -1,0 +1,104 @@
+[
+  {
+    "name": "failed_logins_critical",
+    "description": "Alert when failed login attempts exceed threshold",
+    "disabled": false,
+    "statusMessageTemplate": "Failed login attempts: ${ r._value }",
+    "endpointID": "grafana-webhook",
+    "orgID": "a056c5c6bf3169f6",
+    "every": "5m",
+    "offset": "0s",
+    "runbookURL": "https://example.com/runbooks/failed-logins",
+    "tags": {
+      "severity": "critical",
+      "team": "security"
+    },
+    "status": "active",
+    "flux": "option task = {name: \"Failed Logins Alert\", every: 5m}\nfrom(bucket: \"security_logs\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"failed_logins\")\n  |> count()\n  |> map(fn: (r) => ({r with result: if r._value > 10 then \"ALERT\" else \"OK\"}))\n"
+  },
+  {
+    "name": "intrusion_ban_critical",
+    "description": "Alert when IPs are banned by fail2ban",
+    "disabled": false,
+    "statusMessageTemplate": "Intrusion detected: ${ r._value } ban action(s)",
+    "endpointID": "grafana-webhook",
+    "orgID": "a056c5c6bf3169f6",
+    "every": "1m",
+    "offset": "0s",
+    "runbookURL": "https://example.com/runbooks/intrusion-detection",
+    "tags": {
+      "severity": "critical",
+      "team": "security"
+    },
+    "status": "active",
+    "flux": "option task = {name: \"Intrusion Ban Alert\", every: 1m}\nfrom(bucket: \"intrusion_detection\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"fail2ban_actions\" and r.action == \"Ban\")\n  |> count()\n  |> map(fn: (r) => ({r with result: if r._value > 0 then \"ALERT\" else \"OK\"}))\n"
+  },
+  {
+    "name": "http_error_rate_high",
+    "description": "Alert when HTTP 5xx error rate is high",
+    "disabled": false,
+    "statusMessageTemplate": "HTTP errors detected: ${ r._value }",
+    "endpointID": "grafana-webhook",
+    "orgID": "a056c5c6bf3169f6",
+    "every": "5m",
+    "offset": "0s",
+    "runbookURL": "https://example.com/runbooks/http-errors",
+    "tags": {
+      "severity": "high",
+      "team": "devops"
+    },
+    "status": "active",
+    "flux": "option task = {name: \"HTTP Error Rate Alert\", every: 5m}\nfrom(bucket: \"network_logs\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement =~ /nginx_access|apache_access/ and r.http_code >= \"500\")\n  |> count()\n  |> map(fn: (r) => ({r with result: if r._value > 50 then \"ALERT\" else \"OK\"}))\n"
+  },
+  {
+    "name": "cpu_usage_high",
+    "description": "Alert when CPU usage exceeds threshold",
+    "disabled": false,
+    "statusMessageTemplate": "High CPU usage: ${ r._value }%",
+    "endpointID": "grafana-webhook",
+    "orgID": "a056c5c6bf3169f6",
+    "every": "5m",
+    "offset": "0s",
+    "runbookURL": "https://example.com/runbooks/high-cpu",
+    "tags": {
+      "severity": "medium",
+      "team": "infrastructure"
+    },
+    "status": "active",
+    "flux": "option task = {name: \"CPU Usage Alert\", every: 5m}\nfrom(bucket: \"system_metrics\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"cpu\" and r._field == \"usage_system\")\n  |> aggregateWindow(every: 1m, fn: mean)\n  |> map(fn: (r) => ({r with result: if r._value > 80 then \"ALERT\" else \"OK\"}))\n"
+  },
+  {
+    "name": "disk_usage_critical",
+    "description": "Alert when disk usage exceeds 95%",
+    "disabled": false,
+    "statusMessageTemplate": "Critical disk usage: ${ r._value }%",
+    "endpointID": "grafana-webhook",
+    "orgID": "a056c5c6bf3169f6",
+    "every": "10m",
+    "offset": "0s",
+    "runbookURL": "https://example.com/runbooks/disk-full",
+    "tags": {
+      "severity": "critical",
+      "team": "infrastructure"
+    },
+    "status": "active",
+    "flux": "option task = {name: \"Disk Usage Alert\", every: 10m}\nfrom(bucket: \"system_metrics\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"disk\" and r._field == \"used_percent\")\n  |> aggregateWindow(every: 5m, fn: mean)\n  |> map(fn: (r) => ({r with result: if r._value > 95 then \"ALERT\" else \"OK\"}))\n"
+  },
+  {
+    "name": "memory_usage_high",
+    "description": "Alert when memory usage exceeds 90%",
+    "disabled": false,
+    "statusMessageTemplate": "High memory usage: ${ r._value }%",
+    "endpointID": "grafana-webhook",
+    "orgID": "a056c5c6bf3169f6",
+    "every": "5m",
+    "offset": "0s",
+    "runbookURL": "https://example.com/runbooks/high-memory",
+    "tags": {
+      "severity": "high",
+      "team": "infrastructure"
+    },
+    "status": "active",
+    "flux": "option task = {name: \"Memory Usage Alert\", every: 5m}\nfrom(bucket: \"system_metrics\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"mem\" and r._field == \"used_percent\")\n  |> aggregateWindow(every: 1m, fn: mean)\n  |> map(fn: (r) => ({r with result: if r._value > 90 then \"ALERT\" else \"OK\"}))\n"
+  }
+]
