@@ -27,12 +27,22 @@ A comprehensive security monitoring dashboard combining InfluxDB, Telegraf, and 
    cd cyber-dashboard
    ```
 
-2. **Start all services:**
+2. **Set up environment variables:**
+   ```bash
+   # Option 1: Use automated setup (recommended)
+   ./setup.sh
+   
+   # Option 2: Manual setup
+   cp .env.example .env
+   # Edit .env and set secure passwords
+   ```
+
+3. **Start all services:**
    ```bash
    docker-compose up -d
    ```
 
-3. **Verify services are running:**
+4. **Verify services are running:**
    ```bash
    docker-compose ps
    ```
@@ -48,8 +58,10 @@ A comprehensive security monitoring dashboard combining InfluxDB, Telegraf, and 
 ### Access the Dashboard
 
 - **URL:** http://localhost:3000
-- **Username:** `admin`
-- **Password:** `Admin123456`
+- **Username:** Check your `.env` file (default: `admin`)
+- **Password:** Generated during setup (check `.env` file)
+
+⚠️ **Security Note:** Default credentials are auto-generated. See [SECURITY.md](SECURITY.md) for production hardening.
 
 ## Architecture
 
@@ -215,18 +227,21 @@ cyber-dashboard/
 
 ## Environment Variables
 
-Edit `docker-compose.yml` to customize:
+All credentials are managed via `.env` file. See `.env.example` for template.
 
-### InfluxDB
-- `DOCKER_INFLUXDB_INIT_USERNAME=admin`
-- `DOCKER_INFLUXDB_INIT_PASSWORD=password12345`
-- `DOCKER_INFLUXDB_INIT_ORG=my-org`
-- `DOCKER_INFLUXDB_INIT_BUCKET=security_logs`
-- `DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=my-super-secret-auth-token`
+**Quick setup:**
+```bash
+./setup.sh  # Generates secure credentials automatically
+```
 
-### Grafana
-- `GF_SECURITY_ADMIN_USER=admin`
-- `GF_SECURITY_ADMIN_PASSWORD=Admin123456`
+**Manual configuration:**
+- `INFLUXDB_USERNAME` - InfluxDB admin username
+- `INFLUXDB_PASSWORD` - InfluxDB admin password (min 8 chars)
+- `INFLUXDB_TOKEN` - InfluxDB authentication token
+- `GRAFANA_ADMIN_USER` - Grafana admin username
+- `GRAFANA_ADMIN_PASSWORD` - Grafana admin password
+
+📖 See [SECURITY.md](SECURITY.md) for production deployment guide.
 
 ## Security Considerations
 
