@@ -32,6 +32,11 @@ app = Flask(__name__)
 
 SEVERITY_LEVELS = {'critical': 1, 'high': 2, 'medium': 3, 'low': 4, 'info': 5}
 
+INFLUXDB_URL   = os.getenv('INFLUXDB_URL', 'http://influxdb:8086')
+INFLUXDB_TOKEN = os.getenv('INFLUXDB_TOKEN', '')
+INFLUXDB_ORG   = os.getenv('INFLUXDB_ORG', 'my-org')
+ALERT_METRICS_BUCKET = 'alert_metrics'
+
 # Escalation timeouts in seconds per severity (default: critical=5min, high=15min)
 ESCALATION_TIMEOUTS = {
     'critical': int(os.getenv('ESCALATION_TIMEOUT_CRITICAL', 300)),
@@ -62,9 +67,53 @@ class AlertProcessor:
             logger.error(f"Error saving alert history: {e}")
 
     # ------------------------------------------------------------------ #
+    #  InfluxDB metrics writer                                             #
+    # ------------------------------------------------------------------ #
+    def write_metric(self, measurement, fields, tags=None):
+        if not INFLUXDB_TOKEN:
+            return
+        tag_str = ''
+        if tags:
+            tag_str = ',' + ','.join(f"{k}={v}" for k, v in tags.items())
+        field_str = ','.join(f"{k}={v}i" if isinstance(v, int) else f"{k}={v}" for k, v in fields.items())
+        line = f"{measurement}{tag_str} {field_str}"
+        try:
+            import urllib.request
+            req = urllib.request.Request(
+                f"{INFLUXDB_URL}/api/v2/write?org={INFLUXDB_ORG}&bucket={ALERT_METRICS_BUCKET}&precision=s",
+                data=line.encode(),
+                headers={'Authorization': f'Token {INFLUXDB_TOKEN}', 'Content-Type': 'text/plain'},
+                method='POST'
+            )
+            urllib.request.urlopen(req, timeout=3)
+        except Exception as e:
+            logger.warning(f"Failed to write metric to InfluxDB: {e}")
+
+    def write_alert_metrics(self):
+        valid = [a for a in self.alerts_history if a.get('id')]
+        total        = len(valid)
+        pending      = sum(1 for a in valid if not a.get('acknowledged'))
+        acknowledged = sum(1 for a in valid if a.get('acknowledged'))
+        escalated    = sum(1 for a in valid if a.get('escalation_count', 0) > 0)
+        ack_rate     = round((acknowledged / total * 100), 2) if total > 0 else 0.0
+
+        by_severity = {}
+        for a in valid:
+            s = a.get('severity', 'unknown')
+            by_severity[s] = by_severity.get(s, 0) + 1
+
+        self.write_metric('alert_health', {
+            'total': total, 'pending': pending,
+            'acknowledged': acknowledged, 'escalated': escalated,
+            'ack_rate': ack_rate
+        })
+        for severity, count in by_severity.items():
+            self.write_metric('alert_by_severity', {'count': count}, tags={'severity': severity})
+
+    # ------------------------------------------------------------------ #
     #  Email                                                               #
     # ------------------------------------------------------------------ #
-    def send_email(self, subject, body):
+    def send_email(self, subject, fields, actions=None):
         smtp_host, smtp_port = os.getenv('SMTP_HOST', 'smtp.gmail.com:587').rsplit(':', 1)
         smtp_user     = os.getenv('SMTP_USER', '')
         smtp_password = os.getenv('SMTP_PASSWORD', '')
@@ -76,11 +125,31 @@ class AlertProcessor:
             return
 
         try:
-            msg = MIMEMultipart()
+            rows = ''.join(
+                f'<tr><td style="padding:6px 12px;border:1px solid #ddd;font-weight:bold;'
+                f'background:#f5f5f5;white-space:nowrap">{k}</td>'
+                f'<td style="padding:6px 12px;border:1px solid #ddd">{v}</td></tr>'
+                for k, v in fields.items()
+            )
+            action_list = ''.join(f'<li style="margin:4px 0">{a}</li>' for a in (actions or []))
+            actions_block = f'<h3 style="color:#333">Recommended Actions</h3><ol>{action_list}</ol>' if action_list else ''
+            html = f"""
+<html><body style="font-family:Arial,sans-serif;font-size:14px;color:#333">
+  <h2 style="color:#c0392b">{subject}</h2>
+  <table style="border-collapse:collapse;width:100%;max-width:620px">
+    {rows}
+  </table>
+  {actions_block}
+  <p style="color:#aaa;font-size:11px;margin-top:20px">
+    Cyber Dashboard &mdash; {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC
+  </p>
+</body></html>"""
+
+            msg = MIMEMultipart('alternative')
             msg['From']    = smtp_from
             msg['To']      = recipient
             msg['Subject'] = subject
-            msg.attach(MIMEText(body, 'plain'))
+            msg.attach(MIMEText(html, 'html'))
 
             with smtplib.SMTP(smtp_host, int(smtp_port)) as server:
                 server.starttls()
@@ -125,16 +194,15 @@ class AlertProcessor:
                 )
                 self.send_email(
                     subject=f"⚠️ ESCALATION #{alert['escalation_count']}: {alert['name']} [{severity.upper()}] unacknowledged",
-                    body=(
-                        f"Alert ID:   {alert['id']}\n"
-                        f"Name:       {alert['name']}\n"
-                        f"Severity:   {severity}\n"
-                        f"Fired at:   {alert['timestamp']}\n"
-                        f"Elapsed:    {int(elapsed // 60)} minutes\n"
-                        f"Escalation: #{alert['escalation_count']}\n\n"
-                        f"This alert has NOT been acknowledged.\n"
-                        f"Acknowledge it at: POST /alerts/{alert['id']}/acknowledge"
-                    )
+                    fields={
+                        'Alert ID':   alert['id'],
+                        'Name':       alert['name'],
+                        'Severity':   severity.upper(),
+                        'Fired At':   alert['timestamp'],
+                        'Elapsed':    f"{int(elapsed // 60)} minutes",
+                        'Escalation': f"#{alert['escalation_count']}",
+                        'Action':     f"POST /alerts/{alert['id']}/acknowledge",
+                    }
                 )
 
     # ------------------------------------------------------------------ #
@@ -149,6 +217,7 @@ class AlertProcessor:
                 alert['acknowledged_at'] = datetime.now(timezone.utc).isoformat()
                 alert['acknowledge_note'] = note
                 self.save_history()
+                self.write_alert_metrics()
                 logger.info(f"Alert {alert_id} acknowledged. Note: {note}")
                 return alert, 200
         return {'error': 'Alert not found'}, 404
@@ -192,6 +261,7 @@ class AlertProcessor:
             }
             self.alerts_history.append(alert_record)
             self.save_history()
+            self.write_alert_metrics()
             return alert_record
 
         except Exception as e:
@@ -203,17 +273,25 @@ class AlertProcessor:
         description = alert_data.get('commonAnnotations', {}).get('description', 'Unknown')
         logger.critical(f"Description: {description}")
         actions = [
-            "1. Review /var/log/auth.log on target system",
-            "2. Check source IPs of failed attempts",
-            "3. Consider blocking IPs via fail2ban",
-            "4. Review user account access controls",
-            "5. Consider enabling MFA"
+            "Review /var/log/auth.log on target system",
+            "Check source IPs of failed attempts",
+            "Consider blocking IPs via fail2ban",
+            "Review user account access controls",
+            "Consider enabling MFA"
         ]
         for action in actions:
             logger.critical(action)
         self.send_email(
             subject='🚨 CRITICAL: Failed Login Alert Detected',
-            body=f"Description: {description}\n\nRecommended Actions:\n" + "\n".join(actions)
+            fields={
+                'Alert':     'High Failed Login Attempts',
+                'Severity':  'HIGH',
+                'Description': description,
+                'Time':      datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC'),
+                'Threshold': '&gt;10 failed logins in 10 minutes',
+                'Runbook':   'RB-01 — See RUNBOOKS.md',
+            },
+            actions=actions
         )
 
     def handle_intrusion_detection(self, alert_data):
@@ -221,18 +299,26 @@ class AlertProcessor:
         description = alert_data.get('commonAnnotations', {}).get('description', 'Unknown')
         logger.critical(f"Description: {description}")
         actions = [
-            "1. IMMEDIATE: Verify the banned IP is malicious",
-            "2. Check detailed fail2ban logs: /var/log/fail2ban.log",
-            "3. Investigate attack patterns",
-            "4. Review affected services (SSH, HTTP, etc.)",
-            "5. Consider notification to upstream providers",
-            "6. Add IP to permanent blocklist if pattern confirmed"
+            "IMMEDIATE: Verify the banned IP is malicious",
+            "Check detailed fail2ban logs: /var/log/fail2ban.log",
+            "Investigate attack patterns",
+            "Review affected services (SSH, HTTP, etc.)",
+            "Consider notification to upstream providers",
+            "Add IP to permanent blocklist if pattern confirmed"
         ]
         for action in actions:
             logger.critical(action)
         self.send_email(
             subject='🚨 CRITICAL: Intrusion Detected - IP Banned',
-            body=f"Description: {description}\n\nRecommended Actions:\n" + "\n".join(actions)
+            fields={
+                'Alert':     'IP Addresses Banned by Fail2Ban',
+                'Severity':  'CRITICAL',
+                'Description': description,
+                'Time':      datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC'),
+                'Threshold': '&gt;0 ban actions in 5 minutes',
+                'Runbook':   'RB-02 — See RUNBOOKS.md',
+            },
+            actions=actions
         )
 
     def handle_http_errors(self, alert_data):
