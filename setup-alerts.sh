@@ -7,7 +7,7 @@ set -e
 
 GRAFANA_URL="http://localhost:3000"
 ADMIN_USER="admin"
-ADMIN_PASSWORD="Admin123456"
+ADMIN_PASSWORD=$(grep GRAFANA_ADMIN_PASSWORD .env | cut -d= -f2)
 
 echo "🚨 Setting up Grafana Alerts for Security Events..."
 
@@ -21,7 +21,7 @@ curl -s -u $ADMIN_USER:$ADMIN_PASSWORD -X POST \
     "name": "Security Webhook",
     "type": "webhook",
     "settings": {
-      "url": "http://localhost:5000/alerts",
+      "url": "http://webhook-receiver:5000/alerts",
       "httpMethod": "POST"
     },
     "noDataState": "NoData",
@@ -38,9 +38,7 @@ curl -s -u $ADMIN_USER:$ADMIN_PASSWORD -X POST \
     "name": "Security Email Alerts",
     "type": "email",
     "settings": {
-      "addresses": [
-        "daniotest4@gmail.com"
-      ]
+      "addresses": "daniotest4@gmail.com"
     },
     "noDataState": "NoData",
     "execErrState": "Alerting"
@@ -63,7 +61,7 @@ curl -s -u $ADMIN_USER:$ADMIN_PASSWORD -X POST \
           "from": 600,
           "to": 0
         },
-        "datasourceUid": "influxdb",
+        "datasourceUid": "P951FEA4DE68E13C5",
         "model": {
           "expr": "from(bucket: \"security_logs\") |> range(start: -10m) |> filter(fn: (r) => r._measurement == \"failed_logins\") |> count()",
           "hide": false,
@@ -97,6 +95,8 @@ curl -s -u $ADMIN_USER:$ADMIN_PASSWORD -X POST \
         "type": "threshold"
       }
     ],
+    "folderUID": "security-alerts",
+    "intervalSeconds": 60,
     "noDataState": "NoData",
     "execErrState": "Alerting",
     "for": "5m",
@@ -132,7 +132,7 @@ curl -s -u $ADMIN_USER:$ADMIN_PASSWORD -X POST \
           "from": 300,
           "to": 0
         },
-        "datasourceUid": "influxdb",
+        "datasourceUid": "P951FEA4DE68E13C5",
         "model": {
           "expr": "from(bucket: \"intrusion_detection\") |> range(start: -5m) |> filter(fn: (r) => r._measurement == \"fail2ban_actions\" and r.action == \"Ban\") |> count()",
           "hide": false,
@@ -166,6 +166,8 @@ curl -s -u $ADMIN_USER:$ADMIN_PASSWORD -X POST \
         "type": "threshold"
       }
     ],
+    "folderUID": "security-alerts",
+    "intervalSeconds": 60,
     "noDataState": "NoData",
     "execErrState": "Alerting",
     "for": "1m",
@@ -201,7 +203,7 @@ curl -s -u $ADMIN_USER:$ADMIN_PASSWORD -X POST \
           "from": 300,
           "to": 0
         },
-        "datasourceUid": "influxdb",
+        "datasourceUid": "P951FEA4DE68E13C5",
         "model": {
           "expr": "from(bucket: \"network_logs\") |> range(start: -5m) |> filter(fn: (r) => r._measurement =~ /nginx_access|apache_access/ and r.http_code >= \"500\") |> count()",
           "hide": false,
@@ -235,6 +237,8 @@ curl -s -u $ADMIN_USER:$ADMIN_PASSWORD -X POST \
         "type": "threshold"
       }
     ],
+    "folderUID": "security-alerts",
+    "intervalSeconds": 60,
     "noDataState": "NoData",
     "execErrState": "Alerting",
     "for": "5m",
@@ -270,7 +274,7 @@ curl -s -u $ADMIN_USER:$ADMIN_PASSWORD -X POST \
           "from": 300,
           "to": 0
         },
-        "datasourceUid": "influxdb",
+        "datasourceUid": "P951FEA4DE68E13C5",
         "model": {
           "expr": "from(bucket: \"system_metrics\") |> range(start: -5m) |> filter(fn: (r) => r._measurement == \"cpu\" and r._field == \"usage_system\") |> aggregateWindow(every: 1m, fn: mean)",
           "hide": false,
@@ -304,6 +308,8 @@ curl -s -u $ADMIN_USER:$ADMIN_PASSWORD -X POST \
         "type": "threshold"
       }
     ],
+    "folderUID": "security-alerts",
+    "intervalSeconds": 60,
     "noDataState": "NoData",
     "execErrState": "Alerting",
     "for": "5m",
