@@ -12,6 +12,9 @@ grafana-data/
 # Logs
 *.log
 
+# SSL certificates
+nginx/ssl/
+
 # SSH Keys
 *.pem
 *.key
