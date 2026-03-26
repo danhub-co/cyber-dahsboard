@@ -16,7 +16,7 @@ services:
   telegraf:
     image: telegraf:latest
     environment:
-      - INFLUXDB_URL=http://influxdb:8087
+      - INFLUXDB_URL=http://influxdb:8086
       - INFLUXDB_ORG=${INFLUXDB_ORG}
       - INFLUXDB_BUCKET=${INFLUXDB_BUCKET}
       - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
