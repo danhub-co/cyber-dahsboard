@@ -269,10 +269,10 @@ def log_to_elasticsearch(alert):
 
 ## Next Steps
 1. ✅ Run `bash setup-alerts.sh` to create base alerts
-2. ⬜ Update email addresses in notification channels
-3. ⬜ Configure SMTP for email delivery
-4. ⬜ Set up webhook receiver for critical alerts
-5. ⬜ Create alert acknowledgment/escalation workflow
-6. ⬜ Document runbooks for each alert rule
-7. ⬜ Set up alert dashboard for monitoring alert health
+2. ✅ Update email addresses in notification channels
+3. ✅ Configure SMTP for email delivery
+4. ✅ Set up webhook receiver for critical alerts
+5. ✅ Create alert acknowledgment/escalation workflow
+6. ✅ Document runbooks for each alert rule → [RUNBOOKS.md](RUNBOOKS.md)
+7. ✅ Set up alert dashboard for monitoring alert health
 
