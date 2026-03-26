@@ -39,7 +39,7 @@ curl -s -u $ADMIN_USER:$ADMIN_PASSWORD -X POST \
     "type": "email",
     "settings": {
       "addresses": [
-        "security@example.com"
+        "daniotest4@gmail.com"
       ]
     },
     "noDataState": "NoData",

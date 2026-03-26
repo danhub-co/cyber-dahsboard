@@ -86,7 +86,7 @@ Labels:
   - Elasticsearch alerts
 
 ### Email Channel
-- **Recipients**: security@example.com (update with real addresses)
+- **Recipients**: daniotest4@gmail.com
 - **Use Case**: Immediate notification to security team
 - **Configuration**: Requires Grafana SMTP settings
 
@@ -107,10 +107,10 @@ Edit `docker-compose.yml` Grafana environment:
 ```yaml
 environment:
   GF_SMTP_ENABLED: "true"
-  GF_SMTP_HOST: "smtp.gmail.com:587"
-  GF_SMTP_USER: "your-email@gmail.com"
-  GF_SMTP_PASSWORD: "your-app-password"
-  GF_SMTP_FROM_ADDRESS: "security-alerts@example.com"
+  GF_SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com:587}
+  GF_SMTP_USER: ${SMTP_USER}
+  GF_SMTP_PASSWORD: ${SMTP_PASSWORD}
+  GF_SMTP_FROM_ADDRESS: ${SMTP_FROM_ADDRESS}
 ```
 
 Then restart Grafana:

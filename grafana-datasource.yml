@@ -8,8 +8,8 @@ datasources:
     isDefault: true
     jsonData:
       version: Flux
-      organization: my-org
-      defaultBucket: security_logs
+      organization: ${INFLUXDB_ORG}
+      defaultBucket: ${INFLUXDB_BUCKET}
       tlsSkipVerify: false
     secureJsonData:
-      token: my-super-secret-auth-token
+      token: ${INFLUXDB_TOKEN}

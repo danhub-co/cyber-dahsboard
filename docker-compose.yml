@@ -1,10 +1,8 @@
-version: '3.8'
-
 services:
   influxdb:
     image: influxdb:latest
     ports:
-      - "${INFLUXDB_PORT:-8087}:8087"
+      - "${INFLUXDB_PORT:-8087}:8086"
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USERNAME}
@@ -36,6 +34,15 @@ services:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - INFLUXDB_ORG=${INFLUXDB_ORG}
+      - INFLUXDB_BUCKET=${INFLUXDB_BUCKET}
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_HOST=${SMTP_HOST}
+      - GF_SMTP_USER=${SMTP_USER}
+      - GF_SMTP_PASSWORD=${SMTP_PASSWORD}
+      - GF_SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS}
+      - GF_SMTP_FROM_NAME=Cyber Dashboard
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana-datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
@@ -56,8 +63,16 @@ services:
     environment:
       - FLASK_ENV=production
       - FLASK_APP=webhook-receiver
+      - FLASK_HOST=0.0.0.0
       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS}
+      - ALERT_EMAIL=${ALERT_EMAIL}
+      - ESCALATION_TIMEOUT_CRITICAL=${ESCALATION_TIMEOUT_CRITICAL}
+      - ESCALATION_TIMEOUT_HIGH=${ESCALATION_TIMEOUT_HIGH}
     restart: unless-stopped
 
 volumes:
